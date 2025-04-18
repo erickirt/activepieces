@@ -1,5 +1,5 @@
 import { t } from 'i18next';
-import { Brain, ListTodo, Table2, Workflow } from 'lucide-react';
+import { ListTodo, Server, Table2, Workflow } from 'lucide-react';
 import { createContext, useState } from 'react';
 import { Navigate } from 'react-router-dom';
 
@@ -49,7 +49,6 @@ export function DashboardContainer({
   removeBottomPadding,
 }: DashboardContainerProps) {
   const [automationOpen, setAutomationOpen] = useState(true);
-  const [aiOpen, setAiOpen] = useState(true);
   const { platform } = platformHooks.useCurrentPlatform();
   const { data: showIssuesNotification } = issueHooks.useIssuesNotification();
   const { project } = projectHooks.useCurrentProject();
@@ -134,27 +133,14 @@ export function DashboardContainer({
     ],
   };
 
-  const aiGroup: SidebarGroup = {
-    type: 'group',
-    label: t('AI'),
-    icon: Brain,
-    isActive: (pathname: string) => {
-      const paths = ['/mcp'];
-      return paths.some((path) => pathname.includes(path));
-    },
-    defaultOpen: true,
-    open: aiOpen,
-    setOpen: setAiOpen,
-    items: [
-      {
-        type: 'link',
-        to: authenticationSession.appendProjectRoutePrefix('/mcp'),
-        label: t('MCP'),
-        showInEmbed: true,
-        hasPermission: checkAccess(Permission.READ_MCP),
-        isSubItem: true,
-      },
-    ],
+  const mcpLink: SidebarLink = {
+    type: 'link',
+    to: authenticationSession.appendProjectRoutePrefix('/mcp'),
+    label: t('MCP'),
+    icon: Server,
+    showInEmbed: true,
+    hasPermission: checkAccess(Permission.READ_MCP),
+    isSubItem: false,
   };
 
   const tablesLink: SidebarLink = {
@@ -177,7 +163,7 @@ export function DashboardContainer({
     isSubItem: false,
   };
 
-  const items: SidebarItem[] = [automationGroup, aiGroup, tablesLink, todosLink]
+  const items: SidebarItem[] = [automationGroup, mcpLink, tablesLink, todosLink]
     .filter(embedFilter)
     .filter(permissionFilter)
     .filter(filterAlerts);

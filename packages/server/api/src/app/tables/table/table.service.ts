@@ -23,12 +23,13 @@ import { fieldService } from '../field/field.service'
 import { RecordEntity } from '../record/record.entity'
 import { TableWebhookEntity } from './table-webhook.entity'
 import { TableEntity } from './table.entity'
-
 const tableRepo = repoFactory(TableEntity)
 const recordRepo = repoFactory(RecordEntity)
 const tableWebhookRepo = repoFactory(TableWebhookEntity)
 
 export const tableService = {
+
+
     async create({
         projectId,
         request,
@@ -36,6 +37,7 @@ export const tableService = {
         await this.validateCount({ projectId })
         const table = await tableRepo().save({
             id: apId(),
+            externalId: request.externalId ?? apId(),
             name: request.name,
             projectId,
         })
@@ -189,6 +191,7 @@ export const tableService = {
             })
         }
     },
+  
 }
 
 type CreateParams = {

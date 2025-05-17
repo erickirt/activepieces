@@ -5,7 +5,9 @@ import {
     DataSource,
     EntitySchema,
     FindOperator,
+    ObjectLiteral,
     Raw,
+    SelectQueryBuilder,
 } from 'typeorm'
 import { AiProviderEntity } from '../ai/ai-provider-entity'
 import { AppConnectionEntity } from '../app-connection/app-connection.entity'
@@ -38,7 +40,8 @@ import { FolderEntity } from '../flows/folder/folder.entity'
 import { IssueEntity } from '../flows/issues/issues-entity'
 import { TriggerEventEntity } from '../flows/trigger-events/trigger-event.entity'
 import { DatabaseType, system } from '../helper/system/system'
-import { MCPEntity } from '../mcp/mcp-entity'
+import { McpEntity } from '../mcp/mcp-entity'
+import { McpPieceEntity } from '../mcp/mcp-piece-entity'
 import { PieceMetadataEntity } from '../pieces/piece-metadata-entity'
 import { PlatformEntity } from '../platform/platform.entity'
 import { ProjectEntity } from '../project/project-entity'
@@ -57,7 +60,6 @@ import { WebhookSimulationEntity } from '../webhooks/webhook-simulation/webhook-
 import { WorkerMachineEntity } from '../workers/machine/machine-entity'
 import { createPostgresDataSource } from './postgres-connection'
 import { createSqlLiteDataSource } from './sqlite-connection'
-
 const databaseType = system.get(AppSystemProp.DB_TYPE)
 
 function getEntities(): EntitySchema<unknown>[] {
@@ -94,7 +96,8 @@ function getEntities(): EntitySchema<unknown>[] {
         TableWebhookEntity,
         UserIdentityEntity,
         TodoEntity,
-        MCPEntity,
+        McpEntity,
+        McpPieceEntity,
     ]
 
     switch (edition) {
@@ -157,11 +160,34 @@ export const databaseConnection = () => {
     return _databaseConnection
 }
 
+export function getDatabaseType(): DatabaseType {
+    return system.getOrThrow<DatabaseType>(AppSystemProp.DB_TYPE)
+}
+
+
+export function AddAPArrayContainsToQueryBuilder<T extends ObjectLiteral>(
+    queryBuilder: SelectQueryBuilder<T>,
+    columnName: string,
+    values: string[],
+): void {
+    switch (getDatabaseType()) {
+        case DatabaseType.POSTGRES:
+            queryBuilder.andWhere(`${columnName} @> :values`, { values })
+            break
+        case DatabaseType.SQLITE3:{
+            for (const value of values) {
+                queryBuilder.andWhere(`${columnName} LIKE :value${values.indexOf(value)}`, { [`value${values.indexOf(value)}`]: `%${value}%` })
+            }
+            break
+        }
+    }
+}
+
 export function APArrayContains<T>(
     columnName: string,
     values: string[],
 ): Record<string, FindOperator<T>> {
-    const databaseType = system.get(AppSystemProp.DB_TYPE)
+    const databaseType = getDatabaseType()
     switch (databaseType) {
         case DatabaseType.POSTGRES:
             return {

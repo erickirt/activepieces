@@ -127,6 +127,7 @@ export const createMockTemplate = (
         id: template?.id ?? apId(),
         created: template?.created ?? faker.date.recent().toISOString(),
         updated: template?.updated ?? faker.date.recent().toISOString(),
+        metadata: template?.metadata ?? null,
     }
 }
 
@@ -172,6 +173,7 @@ export const createMockProject = (project?: Partial<Project>): Project => {
         platformId: project?.platformId ?? apId(),
         externalId: project?.externalId ?? apId(),
         releasesEnabled: project?.releasesEnabled ?? false,
+        metadata: project?.metadata ?? null,
     }
 }
 
@@ -455,6 +457,7 @@ export const createMockFlow = (flow?: Partial<Flow>): Flow => {
         folderId: flow?.folderId ?? null,
         schedule: flow?.schedule ?? null,
         publishedVersionId: flow?.publishedVersionId ?? null,
+        externalId: flow?.externalId ?? apId(),
     }
 }
 
@@ -476,6 +479,7 @@ export const createMockFlowVersion = (
         displayName: flowVersion?.displayName ?? faker.word.words(),
         flowId: flowVersion?.flowId ?? apId(),
         trigger: flowVersion?.trigger ?? emptyTrigger,
+        connectionIds: flowVersion?.connectionIds ?? [],
         state: flowVersion?.state ?? faker.helpers.enumValue(FlowVersionState),
         updatedBy: flowVersion?.updatedBy,
         valid: flowVersion?.valid ?? faker.datatype.boolean(),

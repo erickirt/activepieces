@@ -2,19 +2,19 @@ import { t } from 'i18next';
 import {
   ChevronDownIcon,
   ChevronUpIcon,
+  Link2,
   LockKeyhole,
-  Settings,
 } from 'lucide-react';
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 
 import { BetaBadge } from '@/components/custom/beta-badge';
-import { useEmbedding } from '@/components/embed-provider';
 import {
   Collapsible,
   CollapsibleTrigger,
   CollapsibleContent,
 } from '@/components/ui/collapsible';
+import { Dot } from '@/components/ui/dot';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import {
@@ -23,7 +23,6 @@ import {
   SidebarFooter,
   SidebarGroup,
   SidebarGroupLabel,
-  SidebarHeader,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuSubItem,
@@ -32,21 +31,16 @@ import {
   SidebarMenuAction,
   SidebarSeparator,
 } from '@/components/ui/sidebar-shadcn';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from '@/components/ui/tooltip';
-import { ProjectSwitcher } from '@/features/projects/components/project-switcher';
 import { useAuthorization } from '@/hooks/authorization-hooks';
 import { flagsHooks } from '@/hooks/flags-hooks';
 import { authenticationSession } from '@/lib/authentication-session';
-import { cn, determineDefaultRoute } from '@/lib/utils';
-import { ApFlagId, ApEdition } from '@activepieces/shared';
+import { cn } from '@/lib/utils';
+import { ApEdition, ApFlagId, Permission } from '@activepieces/shared';
 
 import { ShowPoweredBy } from '../../components/show-powered-by';
 import { platformHooks } from '../../hooks/platform-hooks';
 
+import { ApDashboardSidebarHeader } from './ap-dashboard-sidebar-header';
 import { HelpAndFeedback } from './help-and-feedback';
 import { SidebarInviteUserButton } from './sidebar-invite-user';
 import { SidebarPlatformAdminButton } from './sidebar-platform-admin';
@@ -80,7 +74,6 @@ export const CustomTooltipLink = ({
   locked,
   newWindow,
   isActive,
-  isSubItem,
 }: CustomTooltipLinkProps) => {
   const location = useLocation();
 
@@ -100,7 +93,7 @@ export const CustomTooltipLink = ({
         )}
       >
         <div
-          className={`w-full flex items-center justify-between gap-2 p-2 ${
+          className={`w-full flex items-center justify-between gap-2 px-2 py-1.5 ${
             !Icon ? 'p-2' : ''
           }`}
         >
@@ -110,15 +103,18 @@ export const CustomTooltipLink = ({
               <span className={`text-sm`}>{label}</span>
             </div>
             {(label === 'Tables' || label === 'Todos' || label === 'MCP') && (
-              <span className="ml-2">
-                <BetaBadge showTooltip={false} />
-              </span>
+              <BetaBadge showTooltip={false} />
             )}
           </div>
-          {locked && <LockKeyhole className="size-3" color="grey" />}
+          {locked && (
+            <LockKeyhole className="size-4 stroke-[2px]" color="grey" />
+          )}
         </div>
         {notification && !locked && (
-          <span className="bg-destructive mr-1 size-2 rounded-full "></span>
+          <Dot
+            variant="destructive"
+            className="absolute right-2 top-1/2 transform -translate-y-1/2 size-2 rounded-full "
+          />
         )}
       </div>
     </Link>
@@ -176,154 +172,36 @@ export function SidebarComponent({
   removeGutters = false,
   removeBottomPadding = false,
 }: SidebarProps) {
-  const branding = flagsHooks.useWebsiteBranding();
-  const { data: edition } = flagsHooks.useFlag<ApEdition>(ApFlagId.EDITION);
-  const { embedState } = useEmbedding();
   const { platform } = platformHooks.useCurrentPlatform();
-  const { data: showBilling } = flagsHooks.useFlag<boolean>(
-    ApFlagId.SHOW_BILLING,
-  );
-  const defaultRoute = determineDefaultRoute(useAuthorization().checkAccess);
+  const { data: edition } = flagsHooks.useFlag<ApEdition>(ApFlagId.EDITION);
   const location = useLocation();
+  const { checkAccess } = useAuthorization();
+
+  const showProjectUsage =
+    location.pathname.startsWith('/project') && edition !== ApEdition.COMMUNITY;
+  const showConnectionsLink =
+    location.pathname.startsWith('/project') &&
+    checkAccess(Permission.READ_APP_CONNECTION);
+
   return (
     <div className="flex min-h-screen w-full">
       <div className="flex min-h-screen w-full">
         {!hideSideNav && (
           <Sidebar>
             <SidebarContent>
-              <SidebarHeader className="pb-0">
-                <div className="flex items-center justify-between pr-1">
-                  <div className="flex items-center justify-center gap-1">
-                    <Link
-                      to={isHomeDashboard ? defaultRoute : '/platform'}
-                      className="h-[48px] flex items-center justify-center"
-                    >
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <div className="ml-2 h-auto">
-                            {edition !== ApEdition.COMMUNITY &&
-                            !embedState.isEmbedded ? (
-                              <img
-                                src={branding.logos.logoIconUrl}
-                                alt={t('home')}
-                                width={28}
-                                height={28}
-                                className=" max-h-[28px] max-w-[28px] object-contain"
-                              />
-                            ) : (
-                              <img
-                                src={branding.logos.fullLogoUrl}
-                                alt={t('home')}
-                                width={160}
-                                height={51}
-                                className="max-h-[51px] max-w-[160px] object-contain"
-                              />
-                            )}
-                          </div>
-                        </TooltipTrigger>
-                        <TooltipContent side="bottom">
-                          {t('Home')}
-                        </TooltipContent>
-                      </Tooltip>
-                    </Link>
-                    <ProjectSwitcher />
-                  </div>
-                  <SidebarInviteUserButton />
-                </div>
-              </SidebarHeader>
+              <ApDashboardSidebarHeader isHomeDashboard={isHomeDashboard} />
               <SidebarSeparator />
               <SidebarContent className="gap-0">
-                {/* <SidebarPlatformAdminButton /> */}
                 <ScrollArea className="h-[calc(100vh-100px)]">
-                  {items.map((item, index) =>
-                    item.type === 'group' ? (
-                      <>
-                        {item.separatorBefore && <SidebarSeparator />}
-                        <SidebarGroup key={item.name} className="py-2">
-                          {item.name && (
-                            <SidebarGroupLabel>{item.name}</SidebarGroupLabel>
-                          )}
-                          <SidebarMenu className="py-0">
-                            <Collapsible
-                              defaultOpen={
-                                item.defaultOpen ||
-                                item.isActive?.(location.pathname)
-                              }
-                              className="group/collapsible"
-                              onOpenChange={(open) => {
-                                item.setOpen(open);
-                              }}
-                            >
-                              <SidebarMenuItem>
-                                <CollapsibleTrigger asChild>
-                                  <SidebarMenuButton className="py-0 gap-2 hover:bg-gray-200 rounded-lg transition-colors">
-                                    {item.icon && (
-                                      <item.icon className="size-4" />
-                                    )}
-                                    <span>{item.label}</span>
-                                    <SidebarMenuAction>
-                                      {item.open ? (
-                                        <ChevronUpIcon />
-                                      ) : (
-                                        <ChevronDownIcon />
-                                      )}
-                                    </SidebarMenuAction>
-                                  </SidebarMenuButton>
-                                </CollapsibleTrigger>
-                                <CollapsibleContent>
-                                  <SidebarMenuSub>
-                                    {item.items.map((link, index) => (
-                                      <SidebarMenuSubItem key={link.label}>
-                                        <SidebarMenuButton asChild>
-                                          <CustomTooltipLink
-                                            to={link.to}
-                                            label={link.label}
-                                            Icon={link.icon}
-                                            key={index}
-                                            notification={link.notification}
-                                            locked={link.locked}
-                                            isActive={link.isActive}
-                                            isSubItem={link.isSubItem}
-                                          />
-                                        </SidebarMenuButton>
-                                      </SidebarMenuSubItem>
-                                    ))}
-                                  </SidebarMenuSub>
-                                </CollapsibleContent>
-                              </SidebarMenuItem>
-                            </Collapsible>
-                          </SidebarMenu>
-                        </SidebarGroup>
-                        {item.separatorAfter && <SidebarSeparator />}
-                      </>
-                    ) : (
-                      <>
-                        {item.separatorBefore && <SidebarSeparator />}
-                        <SidebarGroup key={item.label} className="py-1">
-                          {item.name && (
-                            <SidebarGroupLabel>{item.name}</SidebarGroupLabel>
-                          )}
-                          <SidebarMenu className="gap-0 p-0">
-                            <SidebarMenuItem key={item.label}>
-                              <SidebarMenuButton asChild>
-                                <CustomTooltipLink
-                                  to={item.to}
-                                  label={item.label}
-                                  Icon={item.icon}
-                                  key={index}
-                                  notification={item.notification}
-                                  locked={item.locked}
-                                  isActive={item.isActive}
-                                  isSubItem={item.isSubItem}
-                                />
-                              </SidebarMenuButton>
-                            </SidebarMenuItem>
-                          </SidebarMenu>
-                        </SidebarGroup>
-                        {item.separatorAfter && <SidebarSeparator />}
-                      </>
-                    ),
-                  )}
+                  {items.map((item, index) => (
+                    <React.Fragment key={item.label}>
+                      {item.separatorBefore && <SidebarSeparator />}
+                      {item.type === 'group'
+                        ? ApSidebarMenuGroup(item)
+                        : ApSidebarMenuItem(item, index)}
+                      {item.separatorAfter && <SidebarSeparator />}
+                    </React.Fragment>
+                  ))}
 
                   <SidebarGroup>
                     <SidebarGroupLabel>{t('Misc')}</SidebarGroupLabel>
@@ -333,15 +211,15 @@ export function SidebarComponent({
                           <SidebarPlatformAdminButton />
                         </SidebarMenuButton>
                       </SidebarMenuItem>
-                      {!location.pathname.startsWith('/platform') && (
+                      {showConnectionsLink && (
                         <SidebarMenuItem>
                           <SidebarMenuButton asChild>
                             <CustomTooltipLink
                               to={authenticationSession.appendProjectRoutePrefix(
-                                '/settings',
+                                '/connections',
                               )}
-                              label={t('Project Settings')}
-                              Icon={Settings}
+                              label={t('Connections')}
+                              Icon={Link2}
                               isSubItem={false}
                             />
                           </SidebarMenuButton>
@@ -351,17 +229,20 @@ export function SidebarComponent({
                   </SidebarGroup>
                 </ScrollArea>
               </SidebarContent>
-              <SidebarFooter className="pb-4 gap-4">
+              <SidebarFooter className="pb-4">
+                <SidebarMenu>
+                  <SidebarInviteUserButton />
+                </SidebarMenu>
                 <SidebarMenu>
                   <HelpAndFeedback />
                 </SidebarMenu>
-                {showBilling && <Separator />}
-                {showBilling && (
+                {showProjectUsage && <Separator />}
+                {showProjectUsage && (
                   <SidebarMenu>
                     <UsageLimitsButton />
                   </SidebarMenu>
                 )}
-                {showBilling && <Separator />}
+                {showProjectUsage && <Separator />}
                 <SidebarUser />
               </SidebarFooter>
             </SidebarContent>
@@ -382,5 +263,82 @@ export function SidebarComponent({
         position="absolute"
       />
     </div>
+  );
+}
+function ApSidebarMenuItem(item: SidebarLink, index: number) {
+  return (
+    <React.Fragment key={item.label}>
+      <SidebarGroup key={item.label} className="py-1">
+        {item.name && <SidebarGroupLabel>{item.name}</SidebarGroupLabel>}
+        <SidebarMenu className="gap-0 p-0">
+          <SidebarMenuItem key={item.label}>
+            <SidebarMenuButton asChild>
+              <CustomTooltipLink
+                to={item.to}
+                label={item.label}
+                Icon={item.icon}
+                key={index}
+                notification={item.notification}
+                locked={item.locked}
+                isActive={item.isActive}
+                isSubItem={item.isSubItem}
+              />
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        </SidebarMenu>
+      </SidebarGroup>
+    </React.Fragment>
+  );
+}
+
+function ApSidebarMenuGroup(item: SidebarGroup) {
+  const location = useLocation();
+  return (
+    <React.Fragment key={item.label}>
+      <SidebarGroup key={item.name} className="py-2">
+        {item.name && <SidebarGroupLabel>{item.name}</SidebarGroupLabel>}
+        <SidebarMenu className="py-0">
+          <Collapsible
+            defaultOpen={item.defaultOpen || item.isActive?.(location.pathname)}
+            className="group/collapsible"
+            onOpenChange={(open) => {
+              item.setOpen(open);
+            }}
+          >
+            <SidebarMenuItem>
+              <CollapsibleTrigger asChild>
+                <SidebarMenuButton className="py-0 gap-2  rounded-lg">
+                  {item.icon && <item.icon className="size-4" />}
+                  <span>{item.label}</span>
+                  <SidebarMenuAction asChild>
+                    {item.open ? <ChevronUpIcon /> : <ChevronDownIcon />}
+                  </SidebarMenuAction>
+                </SidebarMenuButton>
+              </CollapsibleTrigger>
+              <CollapsibleContent>
+                <SidebarMenuSub>
+                  {item.items.map((link, index) => (
+                    <SidebarMenuSubItem key={link.label}>
+                      <SidebarMenuButton asChild>
+                        <CustomTooltipLink
+                          to={link.to}
+                          label={link.label}
+                          Icon={link.icon}
+                          key={index}
+                          notification={link.notification}
+                          locked={link.locked}
+                          isActive={link.isActive}
+                          isSubItem={link.isSubItem}
+                        />
+                      </SidebarMenuButton>
+                    </SidebarMenuSubItem>
+                  ))}
+                </SidebarMenuSub>
+              </CollapsibleContent>
+            </SidebarMenuItem>
+          </Collapsible>
+        </SidebarMenu>
+      </SidebarGroup>
+    </React.Fragment>
   );
 }

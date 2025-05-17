@@ -18,7 +18,6 @@ import AIProvidersPage from '@/app/routes/platform/setup/ai';
 import { BrandingPage } from '@/app/routes/platform/setup/branding';
 import { PlatformPiecesPage } from '@/app/routes/platform/setup/pieces';
 import { RedirectPage } from '@/app/routes/redirect';
-import { FlowRunsPage } from '@/app/routes/runs';
 import { ProjectPiecesPage } from '@/app/routes/settings/pieces';
 import { useEmbedding } from '@/components/embed-provider';
 import { VerifyEmail } from '@/features/authentication/components/verify-email';
@@ -33,7 +32,6 @@ import {
 } from 'ee-embed-sdk';
 
 import { ApTableStateProvider } from '../../features/tables/components/ap-table-state-provider';
-import { AllowOnlyLoggedInUserOnlyGuard } from '../components/allow-logged-in-user-only-guard';
 import { DashboardContainer } from '../components/dashboard-container';
 import { PlatformAdminContainer } from '../components/platform-admin-container';
 import ProjectSettingsLayout from '../components/project-settings-layout';
@@ -48,7 +46,7 @@ import { FlowsPage } from '../routes/flows';
 import { FlowBuilderPage } from '../routes/flows/id';
 import { ResetPasswordPage } from '../routes/forget-password';
 import { FormPage } from '../routes/forms';
-import IssuesPage from '../routes/issues';
+import McpPage from '../routes/mcp';
 import SettingsBilling from '../routes/platform/billing';
 import SettingsHealthPage from '../routes/platform/infra/health';
 import SettingsWorkersPage from '../routes/platform/infra/workers';
@@ -68,7 +66,6 @@ import AlertsPage from '../routes/settings/alerts';
 import AppearancePage from '../routes/settings/appearance';
 import { EnvironmentPage } from '../routes/settings/environment';
 import GeneralPage from '../routes/settings/general';
-import MCPPage from '../routes/settings/mcp';
 import TeamPage from '../routes/settings/team';
 import { SignInPage } from '../routes/sign-in';
 import { SignUpPage } from '../routes/sign-up';
@@ -81,6 +78,7 @@ import { DefaultRoute } from './default-route';
 import { RoutePermissionGuard } from './permission-guard';
 import {
   ProjectRouterWrapper,
+  projectSettingsRoutes,
   TokenCheckerWrapper,
 } from './project-route-wrapper';
 
@@ -122,22 +120,16 @@ const routes = [
   ...ProjectRouterWrapper({
     path: '/flows/:flowId',
     element: (
-      <AllowOnlyLoggedInUserOnlyGuard>
-        <RoutePermissionGuard permission={Permission.READ_FLOW}>
-          <PageTitle title="Builder">
-            <FlowBuilderPage />
-          </PageTitle>
-        </RoutePermissionGuard>
-      </AllowOnlyLoggedInUserOnlyGuard>
+      <RoutePermissionGuard permission={Permission.READ_FLOW}>
+        <PageTitle title="Builder">
+          <FlowBuilderPage />
+        </PageTitle>
+      </RoutePermissionGuard>
     ),
   }),
   ...ProjectRouterWrapper({
     path: '/flow-import-redirect/:flowId',
-    element: (
-      <AllowOnlyLoggedInUserOnlyGuard>
-        <AfterImportFlowRedirect></AfterImportFlowRedirect>
-      </AllowOnlyLoggedInUserOnlyGuard>
-    ),
+    element: <AfterImportFlowRedirect></AfterImportFlowRedirect>,
   }),
   {
     path: '/forms/:flowId',
@@ -158,23 +150,43 @@ const routes = [
   ...ProjectRouterWrapper({
     path: '/runs/:runId',
     element: (
-      <AllowOnlyLoggedInUserOnlyGuard>
+      <RoutePermissionGuard permission={Permission.READ_RUN}>
+        <PageTitle title="Flow Run">
+          <FlowRunPage />
+        </PageTitle>
+      </RoutePermissionGuard>
+    ),
+  }),
+  ...ProjectRouterWrapper({
+    path: '/runs',
+    element: (
+      <DashboardContainer>
         <RoutePermissionGuard permission={Permission.READ_RUN}>
-          <PageTitle title="Flow Run">
-            <FlowRunPage />
+          <PageTitle title="Runs">
+            <FlowsPage />
           </PageTitle>
         </RoutePermissionGuard>
-      </AllowOnlyLoggedInUserOnlyGuard>
+      </DashboardContainer>
+    ),
+  }),
+  ...ProjectRouterWrapper({
+    path: '/issues',
+    element: (
+      <DashboardContainer>
+        <RoutePermissionGuard permission={Permission.READ_RUN}>
+          <PageTitle title="Issues">
+            <FlowsPage />
+          </PageTitle>
+        </RoutePermissionGuard>
+      </DashboardContainer>
     ),
   }),
   {
     path: '/templates/:templateId',
     element: (
-      <AllowOnlyLoggedInUserOnlyGuard>
-        <PageTitle title="Share Template">
-          <ShareTemplatePage />
-        </PageTitle>
-      </AllowOnlyLoggedInUserOnlyGuard>
+      <PageTitle title="Share Template">
+        <ShareTemplatePage />
+      </PageTitle>
     ),
   },
   ...ProjectRouterWrapper({
@@ -184,18 +196,6 @@ const routes = [
         <PageTitle title="Releases">
           <ViewRelease />
         </PageTitle>
-      </DashboardContainer>
-    ),
-  }),
-  ...ProjectRouterWrapper({
-    path: '/runs',
-    element: (
-      <DashboardContainer>
-        <RoutePermissionGuard permission={Permission.READ_RUN}>
-          <PageTitle title="Runs">
-            <FlowRunsPage />
-          </PageTitle>
-        </RoutePermissionGuard>
       </DashboardContainer>
     ),
   }),
@@ -214,24 +214,12 @@ const routes = [
   ...ProjectRouterWrapper({
     path: '/tables/:tableId',
     element: (
-      <RoutePermissionGuard permission={Permission.READ_TABLE}>
-        <DashboardContainer removeGutters removeBottomPadding>
+      <DashboardContainer removeGutters removeBottomPadding>
+        <RoutePermissionGuard permission={Permission.READ_TABLE}>
           <PageTitle title="Table">
             <ApTableStateProvider>
               <ApTableEditorPage />
             </ApTableStateProvider>
-          </PageTitle>
-        </DashboardContainer>
-      </RoutePermissionGuard>
-    ),
-  }),
-  ...ProjectRouterWrapper({
-    path: '/issues',
-    element: (
-      <DashboardContainer>
-        <RoutePermissionGuard permission={Permission.READ_ISSUES}>
-          <PageTitle title="Issues">
-            <IssuesPage />
           </PageTitle>
         </RoutePermissionGuard>
       </DashboardContainer>
@@ -326,7 +314,7 @@ const routes = [
     ),
   },
   ...ProjectRouterWrapper({
-    path: '/settings/alerts',
+    path: projectSettingsRoutes.alerts,
     element: (
       <DashboardContainer>
         <RoutePermissionGuard permission={Permission.READ_ALERT}>
@@ -340,7 +328,7 @@ const routes = [
     ),
   }),
   ...ProjectRouterWrapper({
-    path: '/settings/appearance',
+    path: projectSettingsRoutes.appearance,
     element: (
       <DashboardContainer>
         <PageTitle title="Appearance">
@@ -352,7 +340,7 @@ const routes = [
     ),
   }),
   ...ProjectRouterWrapper({
-    path: '/settings/general',
+    path: projectSettingsRoutes.general,
     element: (
       <DashboardContainer>
         <PageTitle title="General">
@@ -364,7 +352,7 @@ const routes = [
     ),
   }),
   ...ProjectRouterWrapper({
-    path: '/settings/pieces',
+    path: projectSettingsRoutes.pieces,
     element: (
       <DashboardContainer>
         <PageTitle title="Pieces">
@@ -376,7 +364,7 @@ const routes = [
     ),
   }),
   ...ProjectRouterWrapper({
-    path: '/settings/team',
+    path: projectSettingsRoutes.team,
     element: (
       <DashboardContainer>
         <RoutePermissionGuard permission={Permission.READ_PROJECT_MEMBER}>
@@ -391,11 +379,10 @@ const routes = [
   }),
   {
     path: '/team',
-    element: <Navigate to="/settings/team" replace></Navigate>,
+    element: <Navigate to={projectSettingsRoutes.team} replace></Navigate>,
   },
-
   ...ProjectRouterWrapper({
-    path: '/settings/environments',
+    path: projectSettingsRoutes.environments,
     element: (
       <DashboardContainer>
         <RoutePermissionGuard permission={Permission.READ_PROJECT_RELEASE}>
@@ -415,7 +402,7 @@ const routes = [
       <DashboardContainer>
         <RoutePermissionGuard permission={Permission.READ_MCP}>
           <PageTitle title="MCP">
-            <MCPPage />
+            <McpPage />
           </PageTitle>
         </RoutePermissionGuard>
       </DashboardContainer>

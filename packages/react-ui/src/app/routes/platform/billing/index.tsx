@@ -4,10 +4,9 @@ import { t } from 'i18next';
 import { ClipboardCheck, CircleHelp, Sparkles } from 'lucide-react';
 import { useState } from 'react';
 
-import { useNewWindow } from '@/components/embed-provider';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardContent } from '@/components/ui/card';
-import { Progress } from '@/components/ui/progres-bar';
+import { Progress } from '@/components/ui/progress-bar';
 import { LoadingSpinner } from '@/components/ui/spinner';
 import { TableTitle } from '@/components/ui/table-title';
 import {
@@ -18,6 +17,7 @@ import {
 } from '@/components/ui/tooltip';
 import { INTERNAL_ERROR_TOAST, toast } from '@/components/ui/use-toast';
 import { platformHooks } from '@/hooks/platform-hooks';
+import { useNewWindow } from '@/lib/navigation-utils';
 import { formatUtils } from '@/lib/utils';
 import { isNil } from '@activepieces/shared';
 

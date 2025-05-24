@@ -16,6 +16,8 @@ import {
   httpClient,
 } from '../http';
 import { assertNotNullOrUndefined } from '@activepieces/shared';
+import fs from 'fs';
+import mime from 'mime-types';
 
 export const getAccessTokenOrThrow = (
   auth: OAuth2PropertyValue | undefined
@@ -176,20 +178,65 @@ i.e ${getBaseUrlForDescription(baseUrl,auth)}/resource or /resource`,
         headers: headersValue,
         queryParams: queryParams as QueryParams,
         timeout: timeout ? timeout * 1000 : 0,
+        responseType: 'arraybuffer'
       };
 
       if (body) {
         request.body = body;
       }
 
+      const objectContentTypes = [
+        'application/json',                   // JSON responses
+        'application/xml',                    // XML responses
+        'text/plain',                         // Plain text responses
+        'text/html',                          // HTML responses
+        'application/x-www-form-urlencoded',  // Form submissions
+      ];
+
+      let response;
       try {
-        return await httpClient.sendRequest(request);
+        response = await httpClient.sendRequest(request);
       } catch (error) {
         if (failsafe) {
           return (error as HttpError).errorMessage();
         }
         throw error;
       }
+
+      // Capture content type from header
+      const contentTypeValue = Array.isArray(response.headers?.['content-type'])
+        ? response.headers['content-type'][0]
+        : response.headers?.['content-type']
+
+      // Return unaltered response if content type is associated with objects or strings
+      if (objectContentTypes.some(type => (contentTypeValue ?? '').includes(type))) {
+        try {
+          // Parse JSON responses if valid
+          response.body = JSON.parse(response.body || '{}');
+        } catch (err) {
+          // Fall back to returning plain text if JSON parsing fails
+          response.body = response.body?.toString() || '';
+        }
+      
+        return response
+      }
+
+      // Get file extension from content type
+      const fileExtension: string = mime.extension(contentTypeValue ?? '') || 'txt'
+
+      // Return response as file
+      return {
+          ...response,
+          body: await context.files.write({
+            fileName: `output.${fileExtension}`,
+            data: Buffer.from(response.body)
+          })
+      }
     },
   });
+}
+
+export function is_chromium_installed(): boolean {
+  const chromiumPath = '/usr/bin/chromium'
+  return fs.existsSync(chromiumPath)
 }

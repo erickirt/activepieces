@@ -8,7 +8,7 @@ import {
     OAuth2ConnectionValueWithApp,
     OAuth2GrantType,
 } from '@activepieces/shared'
-import axios from 'axios'
+import axios, { AxiosError } from 'axios'
 import { FastifyBaseLogger } from 'fastify'
 import {
     ClaimOAuth2Request,
@@ -33,16 +33,23 @@ export const credentialsOauth2Service = (log: FastifyBaseLogger): OAuth2Service<
                     break
                 }
                 case OAuth2GrantType.CLIENT_CREDENTIALS:
+                    if (request.scope) {
+                        body.scope = request.scope
+                        Object.entries(request.props ?? {}).forEach(([key, value]) => {
+                            body.scope = body.scope.replace(`{${key}}`, String(value))
+                        })
+                    }
+                    if (request.props) {
+                        Object.entries(request.props).forEach(([key, value]) => {
+                            body[key] = value
+                        })
+                    }
                     break
             }
             if (request.codeVerifier) {
                 body.code_verifier = request.codeVerifier
             }
-            if (request.props && grantType === OAuth2GrantType.CLIENT_CREDENTIALS) {
-                Object.entries(request.props).forEach(([key, value]) => {
-                    body[key] = value
-                })
-            }
+           
             const headers: Record<string, string> = {
                 'content-type': 'application/x-www-form-urlencoded',
                 accept: 'application/json',
@@ -80,13 +87,25 @@ export const credentialsOauth2Service = (log: FastifyBaseLogger): OAuth2Service<
             }
         }
         catch (e: unknown) {
-            log.error(e)
+            if (e instanceof AxiosError) {
+                log.error('Axios Error:')
+                log.error(e.response?.data)
+                log.error({
+                    clientId: request.clientId,
+                    tokenUrl: request.tokenUrl,
+                })
+            }
+            else {
+                log.error('Unknown Error:')
+                log.error(e)
+            }
             throw new ActivepiecesError({
                 code: ErrorCode.INVALID_CLAIM,
                 params: {
                     clientId: request.clientId,
                     tokenUrl: request.tokenUrl,
                     redirectUrl: request.redirectUrl ?? '',
+                    message: e instanceof AxiosError ? e.response?.data.error_description : 'unknown error',
                 },
             })
         }
@@ -110,6 +129,16 @@ export const credentialsOauth2Service = (log: FastifyBaseLogger): OAuth2Service<
             }
             case OAuth2GrantType.CLIENT_CREDENTIALS: {
                 body.grant_type = grantType
+                if (appConnection.scope) {
+                    body.scope = appConnection.scope
+                }
+                if (appConnection.props) {
+                    Object.entries(appConnection.props).forEach(([key, value]) => {
+                        if (typeof value === 'string') {
+                            body[key] = value
+                        }
+                    })
+                }
                 break
             }
             default:

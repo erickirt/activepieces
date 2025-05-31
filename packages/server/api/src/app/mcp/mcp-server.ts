@@ -1,55 +1,78 @@
-import { PieceProperty, PropertyType } from '@activepieces/pieces-framework'
+import { PropertyType } from '@activepieces/pieces-framework'
 import { UserInteractionJobType } from '@activepieces/server-shared'
-import { EngineResponseStatus, ExecuteActionResponse, isNil } from '@activepieces/shared'
+import { EngineResponseStatus, ExecuteActionResponse, fixSchemaNaming, FlowStatus, FlowVersionState, isNil, McpPieceStatus, McpPieceWithConnection, McpTrigger, TriggerType } from '@activepieces/shared'
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
-import { SSEServerTransport } from '@modelcontextprotocol/sdk/server/sse.js'
-import { FastifyBaseLogger, FastifyReply } from 'fastify'
+import { FastifyBaseLogger } from 'fastify'
+import { StatusCodes } from 'http-status-codes'
 import { EngineHelperResponse } from 'server-worker'
-import { z } from 'zod'
+import { flowService } from '../flows/flow/flow.service'
 import { pieceMetadataService } from '../pieces/piece-metadata-service'
 import { projectService } from '../project/project-service'
+import { WebhookFlowVersionToRun } from '../webhooks/webhook-handler'
+import { webhookSimulationService } from '../webhooks/webhook-simulation/webhook-simulation-service'
+import { webhookService } from '../webhooks/webhook.service'
 import { userInteractionWatcher } from '../workers/user-interaction-watcher'
 import { mcpService } from './mcp-service'
+import { MAX_TOOL_NAME_LENGTH, mcpPropertyToZod, piecePropertyToZod } from './mcp-utils'
 
 export async function createMcpServer({
     mcpId,
-    reply,
     logger,
 }: CreateMcpServerRequest): Promise<CreateMcpServerResponse> {
-    const mcp = await mcpService(logger).getOrThrow({ mcpId, log: logger })
+    const server = new McpServer({
+        name: 'Activepieces',
+        version: '1.0.0',
+    })
+
+    await addPiecesToServer(server, mcpId, logger)
+    await addFlowsToServer(server, mcpId, logger)
+
+    return { server }
+}
+
+async function addPiecesToServer(
+    server: McpServer,
+    mcpId: string,
+    logger: FastifyBaseLogger,
+): Promise<void> {
+    const mcp = await mcpService(logger).getOrThrow({ mcpId })
     const projectId = mcp.projectId
     const platformId = await projectService.getPlatformId(projectId)
-    const connections = mcp.connections
 
-    const pieceNames = connections.map((connection) => connection.pieceName)
-    const pieces = await Promise.all(pieceNames.map(async (pieceName) => {
+    // filter out pieces that are not enabled
+    const enabledPieces = mcp.pieces.filter((piece) => piece.status === McpPieceStatus.ENABLED)
+
+    // Get all pieces with their connections
+    const pieces = await Promise.all(enabledPieces.map(async (piece: McpPieceWithConnection) => {
         return pieceMetadataService(logger).getOrThrow({
-            name: pieceName,
+            name: piece.pieceName,
             version: undefined,
             projectId,
             platformId,
         })
     }))
 
-    const transport = new SSEServerTransport('/api/v1/mcp/messages', reply.raw)
-    const server = new McpServer({
-        name: 'Activepieces',
-        version: '1.0.0',
-    })
-
-    const uniqueActions = new Set()
-    pieces.flatMap(piece =>
-        Object.values(piece.actions).map(action => {
+    const uniqueActions = new Set<string>()
+    pieces.flatMap(piece => {
+        return Object.values(piece.actions).map(action => {
             if (uniqueActions.has(action.name)) {
                 return
             }
-            const pieceConnectionExternalId = connections.find(connection => connection.pieceName === piece.name)?.externalId
-            uniqueActions.add(action.name)
+            
+            // Find matching piece in mcp pieces
+            const mcpPiece = mcp.pieces.find(p => p.pieceName === piece.name)
+            const pieceConnectionExternalId = mcpPiece?.connection?.externalId
+            
+            const actionName = fixSchemaNaming(`${piece.name.split('piece-')[1]}-${action.name}`).slice(0, MAX_TOOL_NAME_LENGTH)
+            uniqueActions.add(actionName)
+            
             server.tool(
-                action.name,
+                actionName,
                 action.description,
                 Object.fromEntries(
-                    Object.entries(action.props).filter(([_key, prop]) => prop.type !== PropertyType.MARKDOWN).map(([key, prop]) =>
+                    Object.entries(action.props).filter(([_key, prop]) => 
+                        prop.type !== PropertyType.MARKDOWN,
+                    ).map(([key, prop]) =>
                         [key, piecePropertyToZod(prop)],
                     ),
                 ),
@@ -61,8 +84,9 @@ export async function createMcpServer({
                                 .filter(([key, prop]) => !isNil(prop.defaultValue) && isNil(params[key]))
                                 .map(([key, prop]) => [key, prop.defaultValue]),
                         ),
-                        'auth': `{{connections['${pieceConnectionExternalId}']}}`,
+                        ...(pieceConnectionExternalId ? { auth: `{{connections['${pieceConnectionExternalId}']}}` } : {}),
                     }
+                    
                     const result = await userInteractionWatcher(logger).submitAndWaitForResponse<EngineHelperResponse<ExecuteActionResponse>>({
                         jobType: UserInteractionJobType.EXECUTE_TOOL,
                         actionName: action.name,
@@ -72,6 +96,11 @@ export async function createMcpServer({
                         pieceType: piece.pieceType,
                         input: parsedInputs,
                         projectId,
+                    })
+
+                    await mcpService(logger).trackToolCall({
+                        mcpId,
+                        toolName: action.name,
                     })
 
                     if (result.status === EngineResponseStatus.OK) {
@@ -96,62 +125,115 @@ export async function createMcpServer({
                     }
                 },
             )
-        }),
+        })
+    })
+}
+
+async function addFlowsToServer(
+    server: McpServer,
+    mcpId: string,
+    logger: FastifyBaseLogger,
+): Promise<void> {
+    const mcp = await mcpService(logger).getOrThrow({ mcpId })
+    const projectId = mcp.projectId
+
+    const flows = await flowService(logger).list({ 
+        projectId,
+        cursorRequest: null,
+        limit: 100,
+        folderId: undefined,
+        status: [FlowStatus.ENABLED],
+        name: undefined,
+        versionState: FlowVersionState.LOCKED,
+    })
+
+    const mcpFlows = flows.data.filter((flow) => 
+        flow.version.trigger.type === TriggerType.PIECE &&
+        flow.version.trigger.settings.pieceName === '@activepieces/piece-mcp',
     )
 
-    return { server, transport }
+    for (const flow of mcpFlows) {
+        const triggerSettings = flow.version.trigger.settings as McpTrigger
+        const toolName = fixSchemaNaming('flow-' + triggerSettings.input?.toolName).slice(0, MAX_TOOL_NAME_LENGTH)
+        const toolDescription = triggerSettings.input?.toolDescription
+        const inputSchema = triggerSettings.input?.inputSchema
+        const returnsResponse = triggerSettings.input?.returnsResponse
+
+
+        const paramNameMapping = Object.fromEntries(
+            inputSchema.map((prop) => {
+                const transformedName = fixSchemaNaming(prop.name)
+                return [transformedName, prop.name]
+            }),
+        )
+
+        const zodFromInputSchema = Object.fromEntries(
+            inputSchema.map((prop) => [
+                fixSchemaNaming(prop.name),
+                mcpPropertyToZod(prop),
+            ]),
+        )
+
+        server.tool(
+            toolName,
+            toolDescription,
+            zodFromInputSchema,
+            async (params) => { 
+                // Transform parameter names back to original names for the payload
+                const originalParams = Object.fromEntries(
+                    Object.entries(params).map(([key, value]) => {
+                        const originalName = paramNameMapping[key]
+                        return [originalName || key, value]
+                    }),
+                )
+
+                const response = await webhookService.handleWebhook({
+                    data: () => {
+                        return Promise.resolve({
+                            body: {},
+                            method: 'POST',
+                            headers: {},
+                            queryParams: {},
+                        })
+                    },
+                    logger,
+                    flowId: flow.id,
+                    async: !returnsResponse,
+                    flowVersionToRun: WebhookFlowVersionToRun.LOCKED_FALL_BACK_TO_LATEST,
+                    saveSampleData: await webhookSimulationService(logger).exists(
+                        flow.id,
+                    ),
+                    payload: originalParams,
+                    execute: true,
+                })
+
+                await mcpService(logger).trackToolCall({
+                    mcpId,
+                    toolName,
+                })
+
+                if (response.status !== StatusCodes.OK) {
+                    return {
+                        content: [{
+                            type: 'text',
+                            text: `❌ Error executing flow ${flow.version.displayName}\n\n\`\`\`\n${JSON.stringify(response, null, 2) || 'Unknown error occurred'}\n\`\`\``,
+                        }],
+                    }
+                }
+                return {
+                    content: [{
+                        type: 'text',
+                        text: `✅ Successfully executed flow ${flow.version.displayName}\n\n\`\`\`json\n${JSON.stringify(response, null, 2)}\n\`\`\``,
+                    }],
+                }
+            },
+        )
+    }
 }
-
-function piecePropertyToZod(property: PieceProperty): z.ZodTypeAny {
-    let schema: z.ZodTypeAny
-
-    switch (property.type) {
-        case PropertyType.SHORT_TEXT:
-        case PropertyType.LONG_TEXT:
-        case PropertyType.DATE_TIME:
-            schema = z.string()
-            break
-        case PropertyType.NUMBER:
-            schema = z.number()
-            break
-        case PropertyType.CHECKBOX:
-            schema = z.boolean()
-            break
-        case PropertyType.ARRAY:
-            schema = z.array(z.unknown())
-            break
-        case PropertyType.OBJECT:
-        case PropertyType.JSON:
-            schema = z.record(z.string(), z.unknown())
-            break
-        case PropertyType.MULTI_SELECT_DROPDOWN:
-            schema = z.array(z.string())
-            break
-        case PropertyType.DROPDOWN:
-            schema = z.string()
-            break
-        default:
-            schema = z.unknown()
-    }
-
-    if (property.defaultValue) {
-        schema = schema.default(property.defaultValue)
-    }
-
-    if (property.description) {
-        schema = schema.describe(property.description)
-    }
-
-    return property.required ? schema : schema.optional()
-}
-
 export type CreateMcpServerRequest = {
     mcpId: string
-    reply: FastifyReply
     logger: FastifyBaseLogger
 }
-
 export type CreateMcpServerResponse = {
     server: McpServer
-    transport: SSEServerTransport
 }

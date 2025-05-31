@@ -6,6 +6,7 @@ import {
     isNil,
     PlatformId,
     PlatformRole,
+    PlatformUsageMetric,
     ProjectId,
     SeekPage,
     spreadIfDefined,
@@ -18,7 +19,8 @@ import dayjs from 'dayjs'
 import { In } from 'typeorm'
 import { userIdentityService } from '../authentication/user-identity/user-identity-service'
 import { repoFactory } from '../core/db/repo-factory'
-import { projectMemberRepo } from '../ee/project-role/project-role.service'
+import { checkQuotaOrThrow } from '../ee/platform/platform-plan/platform-plan-helper'
+import { projectMemberRepo } from '../ee/projects/project-role/project-role.service'
 import { system } from '../helper/system/system'
 import { platformService } from '../platform/platform.service'
 import { UserEntity, UserSchema } from './user-entity'
@@ -28,6 +30,14 @@ export const userRepo = repoFactory(UserEntity)
 
 export const userService = {
     async create(params: CreateParams): Promise<User> {
+
+        if (!isNil(params.platformId)) {
+            await checkQuotaOrThrow({
+                platformId: params.platformId,
+                metric: PlatformUsageMetric.USER_SEATS,
+            })
+        }
+
         const user: NewUser = {
             id: apId(),
             identityId: params.identityId,
@@ -38,7 +48,7 @@ export const userService = {
         }
         return userRepo().save(user)
     },
-    async update({ id, status, platformId, platformRole, externalId }: UpdateParams): Promise<UserWithMetaInformation> {
+    async update({ id, status, platformId, platformRole, externalId, lastChangelogDismissed }: UpdateParams): Promise<UserWithMetaInformation> {
         const user = await this.getOrThrow({ id })
         const platform = await platformService.getOneOrThrow(user.platformId!)
         if (platform.ownerId === user.id && status === UserStatus.INACTIVE) {
@@ -57,6 +67,7 @@ export const userService = {
             ...spreadIfDefined('status', status),
             ...spreadIfDefined('platformRole', platformRole),
             ...spreadIfDefined('externalId', externalId),
+            ...spreadIfDefined('lastChangelogDismissed', lastChangelogDismissed),
         })
 
         if (updateResult.affected !== 1) {
@@ -142,6 +153,7 @@ export const userService = {
             platformRole: user.platformRole,
             status: user.status,
             externalId: user.externalId,
+            lastChangelogDismissed: user.lastChangelogDismissed,
             created: user.created,
             updated: user.updated,
         }
@@ -205,6 +217,7 @@ type UpdateParams = {
     platformId: PlatformId
     platformRole?: PlatformRole
     externalId?: string
+    lastChangelogDismissed?: string
 }
 
 type CreateParams = {

@@ -1,7 +1,7 @@
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { ColumnDef } from '@tanstack/react-table';
 import { t } from 'i18next';
-import { CheckIcon, Trash, Pencil, Globe } from 'lucide-react';
+import { CheckIcon, Trash, Globe } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 
@@ -11,6 +11,7 @@ import { ReconnectButtonDialog } from '@/app/connections/reconnect-button-dialog
 import { ConfirmationDeleteDialog } from '@/components/delete-dialog';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
+import { CopyTextTooltip } from '@/components/ui/copy-text-tooltip';
 import {
   BulkAction,
   CURSOR_QUERY_PARAM,
@@ -21,12 +22,6 @@ import {
 import { DataTableColumnHeader } from '@/components/ui/data-table/data-table-column-header';
 import { StatusIconWithText } from '@/components/ui/status-icon-with-text';
 import { TableTitle } from '@/components/ui/table-title';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/components/ui/tooltip';
 import { useToast } from '@/components/ui/use-toast';
 import { EditGlobalConnectionDialog } from '@/features/connections/components/edit-global-connection-dialog';
 import { appConnectionUtils } from '@/features/connections/lib/app-connections-utils';
@@ -152,22 +147,16 @@ const GlobalConnectionsTable = () => {
     {
       accessorKey: 'displayName',
       header: ({ column }) => (
-        <DataTableColumnHeader column={column} title={t('Display Name')} />
+        <DataTableColumnHeader column={column} title={t('Name')} />
       ),
       cell: ({ row }) => {
         return (
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <div className="text-left">{row.original.displayName}</div>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>
-                  {t('External ID')}: {row.original.externalId || '-'}
-                </p>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
+          <CopyTextTooltip
+            title={t('External ID')}
+            text={row.original.externalId || ''}
+          >
+            <div className="text-left">{row.original.displayName}</div>
+          </CopyTextTooltip>
         );
       },
     },
@@ -220,24 +209,15 @@ const GlobalConnectionsTable = () => {
       cell: ({ row }) => {
         return (
           <div className="flex items-center gap-2 justify-end">
-            <Tooltip>
-              <EditGlobalConnectionDialog
-                connectionId={row.original.id}
-                currentName={row.original.displayName}
-                projectIds={row.original.projectIds}
-                onEdit={() => {
-                  refetch();
-                }}
-              >
-                <TooltipTrigger asChild>
-                  <Button variant="ghost" size="sm">
-                    <Pencil className="h-4 w-4" />
-                  </Button>
-                </TooltipTrigger>
-              </EditGlobalConnectionDialog>
-              <TooltipContent>{t('Edit')}</TooltipContent>
-            </Tooltip>
-
+            <EditGlobalConnectionDialog
+              connectionId={row.original.id}
+              currentName={row.original.displayName}
+              projectIds={row.original.projectIds}
+              userHasPermissionToEdit={true}
+              onEdit={() => {
+                refetch();
+              }}
+            />
             <ReconnectButtonDialog
               connection={row.original}
               onConnectionCreated={() => {
@@ -354,7 +334,7 @@ const GlobalConnectionsTable = () => {
     <div className="flex-col w-full">
       <LockedFeatureGuard
         featureKey="GLOBAL_CONNECTIONS"
-        locked={!platform.globalConnectionsEnabled}
+        locked={!platform.plan.globalConnectionsEnabled}
         lockTitle={t('Enable Global Connections')}
         lockDescription={t(
           'Manage platform-wide connections to external systems.',

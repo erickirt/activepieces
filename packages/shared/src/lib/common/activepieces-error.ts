@@ -2,6 +2,7 @@ import { FileId } from '../file'
 import { FlowRunId } from '../flow-run/flow-run'
 import { FlowId } from '../flows/flow'
 import { FlowVersionId } from '../flows/flow-version'
+import { PlatformUsageMetric } from '../platform'
 import { ProjectId } from '../project'
 import { ProjectRole } from '../project-role/project-role'
 import { UserId } from '../user'
@@ -63,7 +64,7 @@ export type ApErrorParams =
     | ExistingAlertChannelErrorParams
     | EmailAlreadyHasActivationKey
     | ProviderProxyConfigNotFoundParams
-    | AITokenLimitExceededParams
+    | AICreditLimitExceededParams
     | SessionExpiredParams
     | InvalidLicenseKeyParams
     | NoChatResponseParams
@@ -74,7 +75,8 @@ export type ApErrorParams =
     | ProjectExternalIdAlreadyExistsParams
     | MemoryIssueParams
     | InvalidCustomDomainErrorParams
-    | MCPNotFoundErrorParams
+    | McpPieceRequiresConnectionParams
+    | McpPieceConnectionMismatchParams
 
 export type BaseErrorParams<T, V> = {
     code: T
@@ -92,7 +94,7 @@ ErrorCode.INVITATION_ONLY_SIGN_UP,
 }
 >
 
-export type InvalidClaimParams = BaseErrorParams<ErrorCode.INVALID_CLAIM, { redirectUrl: string, tokenUrl: string, clientId: string }>
+export type InvalidClaimParams = BaseErrorParams<ErrorCode.INVALID_CLAIM, { redirectUrl: string, tokenUrl: string, clientId: string, message: string }>
 export type InvalidCloudClaimParams = BaseErrorParams<ErrorCode.INVALID_CLOUD_CLAIM, { pieceName: string }>
 
 export type InvalidBearerTokenParams = BaseErrorParams<ErrorCode.INVALID_BEARER_TOKEN, {
@@ -117,7 +119,7 @@ Record<string, string> &
 }
 >
 
-export type AITokenLimitExceededParams = BaseErrorParams<ErrorCode.AI_TOKEN_LIMIT_EXCEEDED, {
+export type AICreditLimitExceededParams = BaseErrorParams<ErrorCode.AI_CREDIT_LIMIT_EXCEEDED, {
     usage: number
     limit: number
 }> 
@@ -359,7 +361,7 @@ ErrorCode.INVALID_APP_CONNECTION,
 export type QuotaExceededParams = BaseErrorParams<
 ErrorCode.QUOTA_EXCEEDED,
 {
-    metric: 'tasks' | 'team-members' | 'ai-tokens'
+    metric: PlatformUsageMetric
     quota?: number
 }
 >
@@ -432,8 +434,16 @@ export type ProjectExternalIdAlreadyExistsParams = BaseErrorParams<ErrorCode.PRO
     externalId: string
 }>
 
-export type MCPNotFoundErrorParams = BaseErrorParams<ErrorCode.MCP_NOT_FOUND, {
-    id: string
+
+
+export type McpPieceRequiresConnectionParams = BaseErrorParams<ErrorCode.MCP_PIECE_REQUIRES_CONNECTION, {
+    pieceName: string
+}>
+
+export type McpPieceConnectionMismatchParams = BaseErrorParams<ErrorCode.MCP_PIECE_CONNECTION_MISMATCH, {
+    pieceName: string
+    connectionPieceName: string
+    connectionId: string
 }>
 
 export enum ErrorCode {
@@ -479,7 +489,7 @@ export enum ErrorCode {
     PIECE_TRIGGER_NOT_FOUND = 'PIECE_TRIGGER_NOT_FOUND',
     QUOTA_EXCEEDED = 'QUOTA_EXCEEDED',
     FEATURE_DISABLED = 'FEATURE_DISABLED',
-    AI_TOKEN_LIMIT_EXCEEDED = 'AI_TOKEN_LIMIT_EXCEEDED',
+    AI_CREDIT_LIMIT_EXCEEDED = 'AI_CREDIT_LIMIT_EXCEEDED',
     SIGN_UP_DISABLED = 'SIGN_UP_DISABLED',
     STEP_NOT_FOUND = 'STEP_NOT_FOUND',
     SYSTEM_PROP_INVALID = 'SYSTEM_PROP_INVALID',
@@ -496,5 +506,6 @@ export enum ErrorCode {
     INVALID_GIT_CREDENTIALS = 'INVALID_GIT_CREDENTIALS',
     INVALID_RELEASE_TYPE = 'INVALID_RELEASE_TYPE',
     COPILOT_FAILED = 'COPILOT_FAILED',
-    MCP_NOT_FOUND = 'MCP_NOT_FOUND',
+    MCP_PIECE_REQUIRES_CONNECTION = 'MCP_PIECE_REQUIRES_CONNECTION',
+    MCP_PIECE_CONNECTION_MISMATCH = 'MCP_PIECE_CONNECTION_MISMATCH',
 }

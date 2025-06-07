@@ -1,16 +1,24 @@
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { ColumnDef } from '@tanstack/react-table';
 import { t } from 'i18next';
-import { CheckIcon, Trash, Globe, AppWindow, Tag, User } from 'lucide-react';
+import {
+  CheckIcon,
+  Globe,
+  AppWindow,
+  Tag,
+  User,
+  Replace,
+  ChevronDown,
+} from 'lucide-react';
 import { useMemo, useState } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 
 import { NewConnectionDialog } from '@/app/connections/new-connection-dialog';
 import { ReconnectButtonDialog } from '@/app/connections/reconnect-button-dialog';
-import { ConfirmationDeleteDialog } from '@/components/delete-dialog';
+import { ReplaceConnectionsDialog } from '@/app/connections/replace-connections-dialog';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
-import { CopyButton } from '@/components/ui/copy-button';
+import { CopyTextTooltip } from '@/components/ui/copy-text-tooltip';
 import {
   BulkAction,
   CURSOR_QUERY_PARAM,
@@ -27,8 +35,8 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
-import { useToast } from '@/components/ui/use-toast';
 import { UserFullName } from '@/components/ui/user-fullname';
+import { EditGlobalConnectionDialog } from '@/features/connections/components/edit-global-connection-dialog';
 import { RenameConnectionDialog } from '@/features/connections/components/rename-connection-dialog';
 import { appConnectionsApi } from '@/features/connections/lib/app-connections-api';
 import { appConnectionsHooks } from '@/features/connections/lib/app-connections-hooks';
@@ -46,13 +54,15 @@ import {
   Permission,
   PlatformRole,
 } from '@activepieces/shared';
+
+import { ConnectionActionMenu } from './connection-actions-menu';
+
 function AppConnectionsPage() {
+  const navigate = useNavigate();
   const [refresh, setRefresh] = useState(0);
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedRows, setSelectedRows] = useState<
     Array<AppConnectionWithoutSensitiveData>
   >([]);
-  const { toast } = useToast();
   const { checkAccess } = useAuthorization();
   const userPlatformRole = userHooks.getCurrentUserPlatformRole();
   const location = useLocation();
@@ -105,21 +115,6 @@ function AppConnectionsPage() {
     Permission.WRITE_APP_CONNECTION,
   );
 
-  const bulkDeleteMutation = useMutation({
-    mutationFn: async (ids: string[]) => {
-      await Promise.all(ids.map((id) => appConnectionsApi.delete(id)));
-    },
-    onSuccess: () => {
-      refetch();
-    },
-    onError: () => {
-      toast({
-        title: t('Error deleting connections'),
-        variant: 'destructive',
-      });
-    },
-  });
-
   const { data: owners } = appConnectionsHooks.useConnectionsOwners();
   const ownersOptions = owners?.map((owner) => ({
     label: `${owner.firstName} ${owner.lastName} (${owner.email})`,
@@ -147,7 +142,7 @@ function AppConnectionsPage() {
     } as const,
     {
       type: 'input',
-      title: t('Display Name'),
+      title: t('Name'),
       accessorKey: 'displayName',
       icon: Tag,
       options: [],
@@ -252,7 +247,7 @@ function AppConnectionsPage() {
     {
       accessorKey: 'displayName',
       header: ({ column }) => (
-        <DataTableColumnHeader column={column} title={t('Display Name')} />
+        <DataTableColumnHeader column={column} title={t('Name')} />
       ),
       cell: ({ row }) => {
         const isPlatformConnection = row.original.scope === 'PLATFORM';
@@ -272,21 +267,13 @@ function AppConnectionsPage() {
                 </TooltipContent>
               </Tooltip>
             )}
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <div className="text-left">{row.original.displayName}</div>
-              </TooltipTrigger>
-              <TooltipContent>
-                <div className="flex gap-2 items-center">
-                  {t('External ID')}: {row.original.externalId || '-'}{' '}
-                  <CopyButton
-                    withoutTooltip={true}
-                    variant="ghost"
-                    textToCopy={row.original.externalId || ''}
-                  ></CopyButton>
-                </div>
-              </TooltipContent>
-            </Tooltip>
+
+            <CopyTextTooltip
+              title={t('External ID')}
+              text={row.original.externalId || ''}
+            >
+              <div className="text-left">{row.original.displayName}</div>
+            </CopyTextTooltip>
           </div>
         );
       },
@@ -345,22 +332,55 @@ function AppConnectionsPage() {
       },
     },
     {
+      accessorKey: 'flowCount',
+      header: ({ column }) => (
+        <DataTableColumnHeader column={column} title={t('Flows')} />
+      ),
+      cell: ({ row }) => {
+        return (
+          <div
+            className="text-left underline cursor-pointer"
+            onClick={() => {
+              navigate(
+                `/flows?connectionExternalId=${row.original.externalId}`,
+              );
+            }}
+          >
+            {row.original.flowIds?.length}
+          </div>
+        );
+      },
+    },
+    {
       id: 'actions',
       cell: ({ row }) => {
-        const isPlatformConnection = row.original.scope === 'PLATFORM';
+        const isPlatformConnection =
+          row.original.scope === AppConnectionScope.PLATFORM;
         const userHasPermissionToRename = isPlatformConnection
           ? userPlatformRole === PlatformRole.ADMIN
           : userHasPermissionToWriteAppConnection;
         return (
           <div className="flex items-center gap-2 justify-end">
-            <RenameConnectionDialog
-              connectionId={row.original.id}
-              currentName={row.original.displayName}
-              onRename={() => {
-                refetch();
-              }}
-              userHasPermissionToRename={userHasPermissionToRename}
-            />
+            {row.original.scope === AppConnectionScope.PROJECT ? (
+              <RenameConnectionDialog
+                connectionId={row.original.id}
+                currentName={row.original.displayName}
+                onRename={() => {
+                  refetch();
+                }}
+                userHasPermissionToRename={userHasPermissionToRename}
+              />
+            ) : (
+              <EditGlobalConnectionDialog
+                connectionId={row.original.id}
+                currentName={row.original.displayName}
+                projectIds={row.original.projectIds}
+                userHasPermissionToEdit={userHasPermissionToRename}
+                onEdit={() => {
+                  refetch();
+                }}
+              />
+            )}
             <ReconnectButtonDialog
               hasPermission={userHasPermissionToRename}
               connection={row.original}
@@ -379,77 +399,77 @@ function AppConnectionsPage() {
       {
         render: (_, resetSelection) => {
           return (
-            <div onClick={(e) => e.stopPropagation()}>
-              <PermissionNeededTooltip
-                hasPermission={userHasPermissionToWriteAppConnection}
-              >
-                <ConfirmationDeleteDialog
-                  title={t('Confirm Deletion')}
-                  message={t(
-                    'Are you sure you want to delete the selected connections? This action cannot be undone.',
-                  )}
-                  entityName="connections"
-                  mutationFn={async () => {
-                    try {
-                      await bulkDeleteMutation.mutateAsync(
-                        selectedRows.map((row) => row.id),
-                      );
-                      resetSelection();
-                      setSelectedRows([]);
-                    } catch (error) {
-                      console.error('Error deleting connections:', error);
-                    }
+            <>
+              {selectedRows.length > 0 && (
+                <ConnectionActionMenu
+                  connections={selectedRows}
+                  refetch={refetch}
+                  onDelete={() => {
+                    resetSelection();
+                    setSelectedRows([]);
                   }}
                 >
-                  {selectedRows.length > 0 && (
-                    <Button
-                      className="w-full mr-2"
-                      onClick={() => setIsDialogOpen(true)}
-                      size="sm"
-                      variant="destructive"
-                    >
-                      <Trash className="mr-2 w-4" />
-                      {`${t('Delete')} (${selectedRows.length})`}
-                    </Button>
-                  )}
-                </ConfirmationDeleteDialog>
-              </PermissionNeededTooltip>
-            </div>
+                  <Button className="h-9 w-full" variant={'default'}>
+                    {selectedRows.length > 0
+                      ? `${t('Actions')} (${selectedRows.length})`
+                      : t('Actions')}
+                    <ChevronDown className="h-3 w-4 ml-2" />
+                  </Button>
+                </ConnectionActionMenu>
+              )}
+            </>
           );
         },
       },
       {
         render: () => {
           return (
-            <PermissionNeededTooltip
-              hasPermission={userHasPermissionToWriteAppConnection}
-            >
-              <NewConnectionDialog
-                isGlobalConnection={false}
-                onConnectionCreated={() => {
-                  setRefresh(refresh + 1);
-                  refetch();
-                }}
+            <div className="flex items-center gap-2">
+              <PermissionNeededTooltip
+                hasPermission={userHasPermissionToWriteAppConnection}
               >
-                <Button
-                  variant="default"
-                  size="sm"
-                  disabled={!userHasPermissionToWriteAppConnection}
+                <ReplaceConnectionsDialog
+                  projectId={projectId}
+                  onConnectionMerged={() => {
+                    setRefresh(refresh + 1);
+                    refetch();
+                  }}
                 >
-                  {t('New Connection')}
-                </Button>
-              </NewConnectionDialog>
-            </PermissionNeededTooltip>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={!userHasPermissionToWriteAppConnection}
+                  >
+                    <Replace className="h-4 w-4" />
+                    <span className="ml-2">{t('Replace')}</span>
+                  </Button>
+                </ReplaceConnectionsDialog>
+              </PermissionNeededTooltip>
+              <PermissionNeededTooltip
+                hasPermission={userHasPermissionToWriteAppConnection}
+              >
+                <NewConnectionDialog
+                  isGlobalConnection={false}
+                  onConnectionCreated={() => {
+                    setRefresh(refresh + 1);
+                    refetch();
+                  }}
+                >
+                  <Button
+                    variant="default"
+                    size="sm"
+                    disabled={!userHasPermissionToWriteAppConnection}
+                  >
+                    {t('New Connection')}
+                  </Button>
+                </NewConnectionDialog>
+              </PermissionNeededTooltip>
+            </div>
           );
         },
       },
     ],
-    [
-      bulkDeleteMutation,
-      userHasPermissionToWriteAppConnection,
-      isDialogOpen,
-      selectedRows,
-    ],
+    [userHasPermissionToWriteAppConnection, selectedRows],
   );
   return (
     <div className="flex-col w-full">

@@ -1,6 +1,7 @@
 import {
     Action,
     ActionType,
+    BeginExecuteFlowOperation,
     EngineOperation,
     EngineOperationType,
     EngineResponse,
@@ -12,6 +13,7 @@ import {
     ExecuteStepOperation,
     ExecuteToolOperation,
     ExecuteTriggerOperation,
+    ExecuteTriggerResponse,
     ExecuteValidateAuthOperation,
     ExecutionType,
     FlowRunResponse,
@@ -20,6 +22,7 @@ import {
     StepOutput,
     StepOutputStatus,
     TriggerHookType,
+    TriggerPayload,
 } from '@activepieces/shared'
 import { EngineConstants } from './handler/context/engine-constants'
 import { ExecutionVerdict, FlowExecutorContext } from './handler/context/flow-execution-context'
@@ -59,7 +62,7 @@ async function executeActionForTool(input: ExecuteToolOperation): Promise<Execut
         name: input.actionName,
         displayName: input.actionName,
         type: ActionType.PIECE,
-        settings: { 
+        settings: {
             input: input.input,
             actionName: input.actionName,
             pieceName: input.pieceName,
@@ -119,24 +122,46 @@ function cleanSampleData(stepOutput: StepOutput) {
     return stepOutput.output
 }
 
-function getFlowExecutionState(input: ExecuteFlowOperation): FlowExecutorContext {
+async function runOrReturnPayload(input: BeginExecuteFlowOperation): Promise<TriggerPayload> {
+    if (!input.executeTrigger) {
+        return input.triggerPayload as TriggerPayload
+    }
+    const newPayload = await triggerHelper.executeTrigger({
+        params: {
+            ...input,
+            hookType: TriggerHookType.RUN,
+            test: false,
+            webhookUrl: '',
+            triggerPayload: input.triggerPayload as TriggerPayload,
+        },
+        constants: EngineConstants.fromExecuteFlowInput(input),
+    }) as ExecuteTriggerResponse<TriggerHookType.RUN>
+    return newPayload.output[0] as TriggerPayload
+}
+
+async function getFlowExecutionState(input: ExecuteFlowOperation): Promise<FlowExecutorContext> {
+    let flowContext = FlowExecutorContext.empty().increaseTask(input.tasks)
     switch (input.executionType) {
-        case ExecutionType.BEGIN:
-            return FlowExecutorContext.empty().upsertStep(input.flowVersion.trigger.name, GenericStepOutput.create({
+        case ExecutionType.BEGIN: {
+            const newPayload = await runOrReturnPayload(input)
+            flowContext = flowContext.upsertStep(input.flowVersion.trigger.name, GenericStepOutput.create({
                 type: input.flowVersion.trigger.type,
                 status: StepOutputStatus.SUCCEEDED,
                 input: {},
-            }).setOutput(input.triggerPayload))
+            }).setOutput(newPayload))
+            break
+        }
         case ExecutionType.RESUME: {
-            let flowContext = FlowExecutorContext.empty().increaseTask(input.tasks)
-            for (const [step, output] of Object.entries(input.steps)) {
-                if ([StepOutputStatus.SUCCEEDED, StepOutputStatus.PAUSED].includes(output.status)) {
-                    flowContext = flowContext.upsertStep(step, output)
-                }
-            }
-            return flowContext
+            break
         }
     }
+
+    for (const [step, output] of Object.entries(input.executionState.steps)) {
+        if ([StepOutputStatus.SUCCEEDED, StepOutputStatus.PAUSED].includes(output.status)) {
+            flowContext = flowContext.upsertStep(step, output)
+        }
+    }
+    return flowContext
 }
 
 export async function execute(operationType: EngineOperationType, operation: EngineOperation): Promise<EngineResponse<unknown>> {
@@ -156,7 +181,7 @@ export async function execute(operationType: EngineOperationType, operation: Eng
             }
             case EngineOperationType.EXECUTE_FLOW: {
                 const input = operation as ExecuteFlowOperation
-                const flowExecutorContext = getFlowExecutionState(input)
+                const flowExecutorContext = await getFlowExecutionState(input)
                 const output = await executeFlow(input, flowExecutorContext)
                 return output
             }

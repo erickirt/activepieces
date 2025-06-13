@@ -1,10 +1,10 @@
 import { t } from 'i18next';
-import { Brain, ListTodo, Table2, Workflow } from 'lucide-react';
+import { ListTodo, Package, Table2, Workflow } from 'lucide-react';
 import { createContext, useState } from 'react';
 import { Navigate } from 'react-router-dom';
 
+import { McpSvg } from '@/assets/img/custom/mcp';
 import { useEmbedding } from '@/components/embed-provider';
-import { issueHooks } from '@/features/issues/hooks/issue-hooks';
 import { useAuthorization } from '@/hooks/authorization-hooks';
 import { platformHooks } from '@/hooks/platform-hooks';
 import { projectHooks } from '@/hooks/project-hooks';
@@ -12,13 +12,7 @@ import { isNil, Permission } from '@activepieces/shared';
 
 import { authenticationSession } from '../../lib/authentication-session';
 
-import { AllowOnlyLoggedInUserOnlyGuard } from './allow-logged-in-user-only-guard';
-import {
-  SidebarComponent,
-  SidebarGroup,
-  SidebarItem,
-  SidebarLink,
-} from './sidebar';
+import { SidebarComponent, SidebarItem, SidebarLink } from './sidebar';
 
 type DashboardContainerProps = {
   children: React.ReactNode;
@@ -48,10 +42,7 @@ export function DashboardContainer({
   hideHeader,
   removeBottomPadding,
 }: DashboardContainerProps) {
-  const [automationOpen, setAutomationOpen] = useState(true);
-  const [aiOpen, setAiOpen] = useState(true);
   const { platform } = platformHooks.useCurrentPlatform();
-  const { data: showIssuesNotification } = issueHooks.useIssuesNotification();
   const { project } = projectHooks.useCurrentProject();
   const { embedState } = useEmbedding();
   const currentProjectId = authenticationSession.getProjectId();
@@ -74,94 +65,49 @@ export function DashboardContainer({
   };
 
   const filterAlerts = (item: SidebarItem) =>
-    platform.alertsEnabled || item.label !== t('Alerts');
+    platform.plan.alertsEnabled || item.label !== t('Alerts');
 
-  const automationGroup: SidebarGroup = {
-    type: 'group',
-    label: t('Automation'),
-    putEmptySpaceTop: true,
-    icon: Workflow,
-    isActive: (pathname: string) => {
-      const paths = [
-        '/flows',
-        '/issues',
-        '/runs',
-        '/connections',
-        '/releases',
-        '/tables',
-      ];
-      return paths.some((path) => pathname.includes(path));
-    },
-    name: t('Products'),
-    defaultOpen: true,
-    open: automationOpen,
-    setOpen: setAutomationOpen,
-    items: [
-      {
-        type: 'link',
-        to: authenticationSession.appendProjectRoutePrefix('/flows'),
-        label: t('Flows'),
-        showInEmbed: true,
-        hasPermission: checkAccess(Permission.READ_FLOW),
-        isSubItem: true,
-      },
-      {
-        type: 'link',
-        to: authenticationSession.appendProjectRoutePrefix('/runs'),
-        label: t('Runs'),
-        showInEmbed: true,
-        notification: showIssuesNotification,
-        hasPermission: checkAccess(Permission.READ_RUN),
-        isSubItem: true,
-      },
-      {
-        type: 'link',
-        to: authenticationSession.appendProjectRoutePrefix('/connections'),
-        label: t('Connections'),
-        showInEmbed: true,
-        hasPermission: checkAccess(Permission.READ_APP_CONNECTION),
-        isSubItem: true,
-      },
-      {
-        type: 'link',
-        to: authenticationSession.appendProjectRoutePrefix('/releases'),
-        label: t('Releases'),
-        hasPermission:
-          project.releasesEnabled &&
-          checkAccess(Permission.READ_PROJECT_RELEASE),
-        isSubItem: true,
-      },
-    ],
+  const releasesLink: SidebarLink = {
+    type: 'link',
+    to: authenticationSession.appendProjectRoutePrefix('/releases'),
+    icon: <Package />,
+    label: t('Releases'),
+    hasPermission:
+      project.releasesEnabled && checkAccess(Permission.READ_PROJECT_RELEASE),
+    showInEmbed: true,
+    isSubItem: false,
   };
 
-  const aiGroup: SidebarGroup = {
-    type: 'group',
-    label: t('AI'),
-    icon: Brain,
-    isActive: (pathname: string) => {
-      const paths = ['/mcp'];
-      return paths.some((path) => pathname.includes(path));
-    },
-    defaultOpen: true,
-    open: aiOpen,
-    setOpen: setAiOpen,
-    items: [
-      {
-        type: 'link',
-        to: authenticationSession.appendProjectRoutePrefix('/mcp'),
-        label: t('MCP'),
-        showInEmbed: true,
-        hasPermission: checkAccess(Permission.READ_MCP),
-        isSubItem: true,
-      },
-    ],
+  const flowsLink: SidebarLink = {
+    type: 'link',
+    to: authenticationSession.appendProjectRoutePrefix('/flows'),
+    icon: <Workflow />,
+    label: t('Flows'),
+    name: t('Products'),
+    showInEmbed: true,
+    hasPermission: checkAccess(Permission.READ_FLOW),
+    isSubItem: false,
+    isActive: (pathname) =>
+      pathname.includes('/flows') ||
+      pathname.includes('/runs') ||
+      pathname.includes('/issues'),
+  };
+
+  const mcpLink: SidebarLink = {
+    type: 'link',
+    to: authenticationSession.appendProjectRoutePrefix('/mcps'),
+    label: t('MCP'),
+    icon: McpSvg,
+    showInEmbed: true,
+    hasPermission: checkAccess(Permission.READ_MCP),
+    isSubItem: false,
   };
 
   const tablesLink: SidebarLink = {
     type: 'link',
     to: authenticationSession.appendProjectRoutePrefix('/tables'),
     label: t('Tables'),
-    icon: Table2,
+    icon: <Table2 />,
     showInEmbed: true,
     hasPermission: checkAccess(Permission.READ_TABLE),
     isSubItem: false,
@@ -171,55 +117,42 @@ export function DashboardContainer({
     type: 'link',
     to: authenticationSession.appendProjectRoutePrefix('/todos'),
     label: t('Todos'),
-    icon: ListTodo,
+    icon: <ListTodo />,
     showInEmbed: true,
     hasPermission: checkAccess(Permission.READ_TODOS),
     isSubItem: false,
   };
 
-  const items: SidebarItem[] = [automationGroup, aiGroup, tablesLink, todosLink]
+  const items: SidebarItem[] = [
+    flowsLink,
+    releasesLink,
+    mcpLink,
+    tablesLink,
+    todosLink,
+  ]
     .filter(embedFilter)
     .filter(permissionFilter)
     .filter(filterAlerts);
 
-  for (const item of items) {
-    if (item.type === 'group') {
-      const newItems = item.items
-        .filter(embedFilter)
-        .filter(permissionFilter)
-        .filter(filterAlerts);
-      item.items = newItems;
-    }
-  }
-
-  const filteredItems = items.filter((item) => {
-    if (item.type === 'group') {
-      return item.items.length > 0;
-    }
-    return true;
-  });
-
   return (
-    <AllowOnlyLoggedInUserOnlyGuard>
-      <ProjectChangedRedirector currentProjectId={currentProjectId}>
-        <CloseTaskLimitAlertContext.Provider
-          value={{
-            isAlertClosed,
-            setIsAlertClosed,
-          }}
+    <ProjectChangedRedirector currentProjectId={currentProjectId}>
+      <CloseTaskLimitAlertContext.Provider
+        value={{
+          isAlertClosed,
+          setIsAlertClosed,
+        }}
+      >
+        <SidebarComponent
+          removeGutters={removeGutters}
+          isHomeDashboard={true}
+          hideHeader={hideHeader}
+          items={items}
+          hideSideNav={embedState.hideSideNav}
+          removeBottomPadding={removeBottomPadding}
         >
-          <SidebarComponent
-            removeGutters={removeGutters}
-            isHomeDashboard={true}
-            hideHeader={hideHeader}
-            items={filteredItems}
-            hideSideNav={embedState.hideSideNav}
-            removeBottomPadding={removeBottomPadding}
-          >
-            {children}
-          </SidebarComponent>
-        </CloseTaskLimitAlertContext.Provider>
-      </ProjectChangedRedirector>
-    </AllowOnlyLoggedInUserOnlyGuard>
+          {children}
+        </SidebarComponent>
+      </CloseTaskLimitAlertContext.Provider>
+    </ProjectChangedRedirector>
   );
 }

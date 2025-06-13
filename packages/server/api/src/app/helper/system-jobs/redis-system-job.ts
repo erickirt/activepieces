@@ -7,7 +7,7 @@ import { JobSchedule, SystemJobData, SystemJobName, SystemJobSchedule } from './
 import { systemJobHandlers } from './job-handlers'
 
 const FIFTEEN_MINUTES = apDayjsDuration(15, 'minute').asMilliseconds()
-const ONE_MONTH = apDayjsDuration(1, 'month').asMilliseconds()
+const ONE_MONTH = apDayjsDuration(1, 'month').asSeconds()
 const SYSTEM_JOB_QUEUE = 'system-job-queue'
 
 export let systemJobsQueue: Queue<SystemJobData, unknown, SystemJobName>
@@ -89,6 +89,7 @@ async function removeDeprecatedJobs() {
     const deprecatedJobs = [
         'trigger-data-cleaner',
         'logs-cleanup-trigger',
+        'usage-report',
     ]
     const allSystemJobs = await systemJobsQueue.getJobSchedulers()
     const deprecatedJobsFromQueue = allSystemJobs.filter(f => !isNil(f) && (deprecatedJobs.includes(f.key) || deprecatedJobs.some(d => f.key.startsWith(d))))

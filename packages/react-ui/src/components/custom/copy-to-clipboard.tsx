@@ -1,3 +1,5 @@
+import { cn } from '@/lib/utils';
+
 import { CopyButton } from '../ui/copy-button';
 import { DownloadButton } from '../ui/download-button';
 import { Input } from '../ui/input';
@@ -9,7 +11,7 @@ type CopyToClipboardInputProps = {
   fileName?: string;
 };
 
-const noBorderInputClass = `border-none w-full focus-visible:ring-0 focus-visible:ring-transparent focus-visible:ring-offset-0`;
+const noBorderInputClass = `border-none w-full rfocus-visible:ring-0 focus-visible:ring-transparent focus-visible:ring-offset-0`;
 
 const CopyToClipboardInput = ({
   textToCopy,
@@ -17,7 +19,7 @@ const CopyToClipboardInput = ({
   useInput,
 }: CopyToClipboardInputProps) => {
   return (
-    <div className="flex gap-2 items-center bg-background border border-solid text-sm rounded-lg block w-full select-none pr-3">
+    <div className="flex gap-2 items-center bg-background border border-solid text-sm rounded block w-full select-none pr-3">
       {useInput ? (
         <Input value={textToCopy} className={noBorderInputClass} readOnly />
       ) : (
@@ -28,7 +30,11 @@ const CopyToClipboardInput = ({
           readOnly
         />
       )}
-      <div className="flex flex-col gap-1">
+      <div
+        className={cn('flex  gap-1', {
+          'flex-col': !useInput,
+        })}
+      >
         <CopyButton textToCopy={textToCopy} variant="ghost" />
         {fileName && (
           <DownloadButton

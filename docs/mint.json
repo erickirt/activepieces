@@ -44,6 +44,10 @@
       "url": "developers"
     },
     {
+      "name": "Embedding",
+      "url": "embedding"
+    },
+    {
       "name": "API Reference",
       "url": "endpoints"
     },
@@ -119,21 +123,24 @@
       "icon": "code",
       "pages": [
         "handbook/engineering/overview",
+        "handbook/engineering/onboarding/onboarding-check-list",
         "handbook/engineering/onboarding/how-we-work",
         "handbook/engineering/onboarding/on-call",
         "handbook/engineering/onboarding/downtime-incident"
       ]
     },
     {
-      "group": "Engineering Playbooks", 
+      "group": "Engineering Playbooks",
       "icon": "code",
       "pages": [
+        "handbook/engineering/playbooks/run-ee",
         "handbook/engineering/playbooks/setup-incident-io",
         "handbook/engineering/playbooks/releases",
         "handbook/engineering/playbooks/infrastructure",
         "handbook/engineering/playbooks/bullboard",
         "handbook/engineering/playbooks/database-migration",
-        "handbook/engineering/playbooks/product-announcement"
+        "handbook/engineering/playbooks/product-announcement",
+        "handbook/engineering/playbooks/frontend-best-practices"
       ]
     },
     {
@@ -264,6 +271,27 @@
             "endpoints/flow-templates/get",
             "endpoints/flow-templates/list"
           ]
+        },
+        {
+          "group": "MCP Servers",
+          "icon": "server",
+          "pages": [
+            "endpoints/mcp-servers/schema",
+            "endpoints/mcp-servers/list",
+            "endpoints/mcp-servers/rotate",
+            "endpoints/mcp-servers/update"
+          ]
+        },
+        {
+          "group": "MCP pieces",
+          "icon": "plug",
+          "pages": [
+            "endpoints/mcp-pieces/schema",
+            "endpoints/mcp-pieces/add",
+            "endpoints/mcp-pieces/delete",
+            "endpoints/mcp-pieces/update",
+            "endpoints/mcp-pieces/list"
+          ]
         }
       ]
     },
@@ -306,7 +334,7 @@
       "pages": [
         "install/configuration/overview",
         "install/configuration/environment-variables",
-        "install/configuration/seperate-workers",
+        "install/configuration/separate-workers",
         "install/configuration/setup-app-webhooks",
         "install/configuration/hardware",
         "install/configuration/setup-ssl",
@@ -375,16 +403,9 @@
         "developers/piece-reference/external-libraries",
         "developers/piece-reference/piece-versioning",
         "developers/piece-reference/examples",
-        "developers/piece-reference/custom-api-calls"
-      ]
-    },
-    {
-      "group": "Unified AI",
-      "pages": [
-        "developers/unified-ai/overview",
-        "developers/unified-ai/chat",
-        "developers/unified-ai/function-calling",
-        "developers/unified-ai/image"
+        "developers/piece-reference/custom-api-calls",
+        "developers/piece-reference/i18n",
+        "developers/piece-reference/ai-providers"
       ]
     },
     {
@@ -398,19 +419,28 @@
       ]
     },
     {
-      "group": "Embedding",
+      "group": "Essentials",
       "pages": [
         "embedding/overview",
         "embedding/provision-users",
-        "embedding/embed-builder",
-        "embedding/navigation",
+        "embedding/embed-builder"
+      ]
+    },
+   
+    {
+      "group": "Misc",
+      "pages": [
         "embedding/customize-pieces",
         "embedding/embed-connections",
-        "embedding/sdk-changelog"
+        "embedding/mcps",
+        "embedding/navigation",
+        "embedding/predefined-connection",
+        "embedding/sdk-changelog",
+        "embedding/sdk-server-requests"
       ]
     },
     {
-      "group": "Admin Console",
+      "group": "Platform Admin",
       "pages": [
         "admin-console/overview",
         "admin-console/appearance",

@@ -89,7 +89,9 @@ const ApMarkdown = React.memo(
     const markdownProcessed = applyVariables(markdown, variables ?? {})
       .split('\n')
       .map((line) => line.trim())
-      .join('\n');
+      .join('\n')
+      .replaceAll('\n', '\n\n');
+
     return (
       <Container variant={variant}>
         <ReactMarkdown
@@ -145,15 +147,15 @@ const ApMarkdown = React.memo(
             ),
             p: ({ node, ...props }) => (
               <p
-                className="leading-7 [&:not(:first-child)]:mt-4 w-full"
+                className="leading-7 [&:not(:first-child)]:mt-2 w-full"
                 {...props}
               />
             ),
             ul: ({ node, ...props }) => (
-              <ul className="mt-4 ml-6 list-disc [&>li]:mt-4" {...props} />
+              <ul className="mt-4 ml-6 list-disc [&>li]:mt-2" {...props} />
             ),
             ol: ({ node, ...props }) => (
-              <ol className="mt-4 ml-6 list-decimal [&>li]:mt-4" {...props} />
+              <ol className="mt-4 ml-6 list-decimal [&>li]:mt-2" {...props} />
             ),
             li: ({ node, ...props }) => <li {...props} />,
             a: ({ node, ...props }) => (

@@ -29,6 +29,7 @@ export const flagService = {
                 ApFlagId.PROJECT_LIMITS_ENABLED,
                 ApFlagId.CURRENT_VERSION,
                 ApFlagId.EDITION,
+                ApFlagId.IS_CLOUD_PLATFORM,
                 ApFlagId.EMAIL_AUTH_ENABLED,
                 ApFlagId.EXECUTION_DATA_RETENTION_DAYS,
                 ApFlagId.ENVIRONMENT,
@@ -53,6 +54,9 @@ export const flagService = {
                 ApFlagId.MAX_FIELDS_PER_TABLE,
                 ApFlagId.MAX_TABLES_PER_PROJECT,
                 ApFlagId.MAX_RECORDS_PER_TABLE,
+                ApFlagId.MAX_FILE_SIZE_MB,
+                ApFlagId.SHOW_CHANGELOG,
+                ApFlagId.MAX_MCPS_PER_PROJECT,
             ]),
         })
         const now = new Date().toISOString()
@@ -104,6 +108,12 @@ export const flagService = {
                 updated,
             },
             {
+                id: ApFlagId.IS_CLOUD_PLATFORM,
+                value: false,
+                created,
+                updated,
+            },
+            {
                 id: ApFlagId.SHOW_BILLING,
                 value: system.getEdition() === ApEdition.CLOUD,
                 created,
@@ -136,6 +146,12 @@ export const flagService = {
             {
                 id: ApFlagId.SHOW_COMMUNITY,
                 value: system.getEdition() !== ApEdition.ENTERPRISE,
+                created,
+                updated,
+            },
+            {
+                id: ApFlagId.SHOW_CHANGELOG,
+                value: true,
                 created,
                 updated,
             },
@@ -231,6 +247,18 @@ export const flagService = {
                 created,
                 updated,
             },
+            {
+                id: ApFlagId.MAX_FILE_SIZE_MB,
+                value: system.getNumber(AppSystemProp.MAX_FILE_SIZE_MB),
+                created,
+                updated,
+            },
+            {
+                id: ApFlagId.MAX_MCPS_PER_PROJECT,
+                value: system.getNumber(AppSystemProp.MAX_MCPS_PER_PROJECT),
+                created,
+                updated,
+            },
         )
 
         if (system.isApp()) {
@@ -259,6 +287,7 @@ export const flagService = {
         if (!cloudPlatformId || !platformId) {
             return false
         }
+
         return platformId === cloudPlatformId
     },
 }

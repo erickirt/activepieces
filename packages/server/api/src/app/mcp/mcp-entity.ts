@@ -1,14 +1,15 @@
-import { MCPSchema } from '@activepieces/ee-shared'
+import { McpWithTools } from '@activepieces/shared'
 import { EntitySchema } from 'typeorm'
 import { ApIdSchema, BaseColumnSchemaPart } from '../database/database-common'
 
-
-
-
-export const MCPEntity = new EntitySchema<MCPSchema>({
+export const McpEntity = new EntitySchema<McpWithTools>({
     name: 'mcp',
     columns: {
         ...BaseColumnSchemaPart,
+        name: {
+            type: String,
+            default: 'MCP Server',
+        },
         projectId: ApIdSchema,
         token: ApIdSchema,
     },
@@ -16,13 +17,14 @@ export const MCPEntity = new EntitySchema<MCPSchema>({
         {
             name: 'mcp_project_id',
             columns: ['projectId'],
-            unique: true,
+            unique: false,
         },
     ],
     relations: {
-        connections: {
+        tools: {
             type: 'one-to-many',
-            target: 'app_connection',
+            target: 'mcp_tool',
+            inverseSide: 'mcp',
             cascade: true,
             onDelete: 'CASCADE',
         },

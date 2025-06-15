@@ -22,45 +22,11 @@ import {
 } from '@/components/ui/popover';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { INTERNAL_ERROR_TOAST, toast } from '@/components/ui/use-toast';
-import { cn } from '@/lib/utils';
-import { ApFlagId } from '@activepieces/shared';
+import { useNewWindow } from '@/lib/navigation-utils';
+import { cn, localesMap } from '@/lib/utils';
+import { ApFlagId, LocalesEnum } from '@activepieces/shared';
 
-import { useNewWindow } from '../../../../components/embed-provider';
 import { flagsHooks } from '../../../../hooks/flags-hooks';
-
-export enum LocalesEnum {
-  DUTCH = 'nl',
-  ENGLISH = 'en',
-  GERMAN = 'de',
-  ITALIAN = 'it',
-  FRENCH = 'fr',
-  BULGARIAN = 'bg',
-  UKRAINIAN = 'uk',
-  HUNGARIAN = 'hu',
-  SPANISH = 'es',
-  JAPANESE = 'ja',
-  INDONESIAN = 'id',
-  VIETNAMESE = 'vi',
-  CHINESE_SIMPLIFIED = 'zh',
-  PORTUGUESE = 'pt',
-}
-
-export const localesMap = {
-  [LocalesEnum.BULGARIAN]: 'Български',
-  [LocalesEnum.CHINESE_SIMPLIFIED]: '简体中文',
-  [LocalesEnum.INDONESIAN]: 'Bahasa Indonesia',
-  [LocalesEnum.GERMAN]: 'Deutsch',
-  [LocalesEnum.ENGLISH]: 'English',
-  [LocalesEnum.SPANISH]: 'Español',
-  [LocalesEnum.FRENCH]: 'Français',
-  [LocalesEnum.ITALIAN]: 'Italiano',
-  [LocalesEnum.JAPANESE]: '日本語',
-  [LocalesEnum.HUNGARIAN]: 'Magyar',
-  [LocalesEnum.DUTCH]: 'Nederlands',
-  [LocalesEnum.PORTUGUESE]: 'Português (Brasil)',
-  [LocalesEnum.UKRAINIAN]: 'Українська',
-  [LocalesEnum.VIETNAMESE]: 'Tiếng Việt',
-};
 
 export function LanguageSwitcher() {
   const { i18n } = useTranslation();
@@ -83,7 +49,6 @@ export function LanguageSwitcher() {
     },
     onSuccess: () => {
       setIsOpen(false);
-      window.location.reload();
     },
     onError: (error) => {
       console.error(error);

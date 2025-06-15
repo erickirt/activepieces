@@ -75,7 +75,6 @@ const systemPropValidators: {
     [AppSystemProp.ENCRYPTION_KEY]: stringValidator,
     [AppSystemProp.EXECUTION_DATA_RETENTION_DAYS]: numberValidator,
     [AppSystemProp.JWT_SECRET]: stringValidator,
-    [AppSystemProp.LICENSE_KEY]: stringValidator,
     [AppSystemProp.MAX_CONCURRENT_JOBS_PER_PROJECT]: numberValidator,
     [AppSystemProp.PIECES_SYNC_MODE]: enumValidator(Object.values(PieceSyncMode)),
     [AppSystemProp.POSTGRES_DATABASE]: stringValidator,
@@ -132,7 +131,7 @@ const systemPropValidators: {
     [AppSystemProp.CLOUD_PLATFORM_ID]: stringValidator,
     [AppSystemProp.INTERNAL_URL]: stringValidator,
     [AppSystemProp.EDITION]: enumValidator(Object.values(ApEdition)),
-
+    [AppSystemProp.FEATUREBASE_API_KEY]: stringValidator,
     // Copilot
     [AppSystemProp.PERPLEXITY_BASE_URL]: urlValidator,
 
@@ -156,6 +155,18 @@ const systemPropValidators: {
     [AppSystemProp.MAX_RECORDS_PER_TABLE]: numberValidator,
     [AppSystemProp.MAX_TABLES_PER_PROJECT]: numberValidator,
     [AppSystemProp.MAX_FIELDS_PER_TABLE]: numberValidator,
+    [AppSystemProp.SHOW_CHANGELOG]: booleanValidator,
+
+    // MCP
+    [AppSystemProp.MAX_MCPS_PER_PROJECT]: numberValidator,
+    [AppSystemProp.ENABLE_FLOW_ON_PUBLISH]: booleanValidator,
+    [AppSystemProp.ISSUE_ARCHIVE_DAYS]: (value: string) => {
+        const days = parseInt(value)
+        if (isNaN(days) || days < 0) {
+            return 'Value must be a non-negative number'
+        }
+        return true
+    },
 }
 
 

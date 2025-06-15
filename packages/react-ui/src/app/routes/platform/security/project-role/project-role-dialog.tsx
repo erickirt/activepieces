@@ -12,7 +12,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { toast } from '@/components/ui/use-toast';
-import { projectRoleApi } from '@/features/platform-admin-panel/lib/project-role-api';
+import { projectRoleApi } from '@/features/platform-admin/lib/project-role-api';
 import { Permission, ProjectRole, RoleType } from '@activepieces/shared';
 
 const initialPermissions = [
@@ -98,6 +98,12 @@ const initialPermissions = [
     read: [Permission.READ_TODOS],
     write: [Permission.READ_TODOS, Permission.WRITE_TODOS],
     disableNone: true,
+  },
+  {
+    name: 'MCP',
+    description: 'Read and write MCP',
+    read: [Permission.READ_MCP],
+    write: [Permission.READ_MCP, Permission.WRITE_MCP],
   },
 ];
 interface ProjectRoleDialogProps {

@@ -4,7 +4,6 @@ import {
   createContext,
   useContext,
   useCallback,
-  useState,
   useEffect,
   useRef,
 } from 'react';
@@ -27,7 +26,6 @@ import {
   flowStructureUtil,
   isNil,
   StepLocationRelativeToParent,
-  Action,
   isFlowStateTerminal,
 } from '@activepieces/shared';
 
@@ -106,7 +104,6 @@ export type BuilderState = {
   applyOperation: (operation: FlowOperationRequest) => void;
   removeStepSelection: () => void;
   selectStepByName: (stepName: string) => void;
-  startSaving: () => void;
   setActiveDraggingStep: (stepName: string | null) => void;
   setFlow: (flow: PopulatedFlow) => void;
   setSampleData: (stepName: string, payload: unknown) => void;
@@ -144,6 +141,8 @@ export type BuilderState = {
   setIsFocusInsideListMapperModeInput: (
     isFocusInsideListMapperModeInput: boolean,
   ) => void;
+  isPublishing: boolean;
+  setIsPublishing: (isPublishing: boolean) => void;
 };
 const DEFAULT_PANNING_MODE_KEY_IN_LOCAL_STORAGE = 'defaultPanningMode';
 export type BuilderInitialState = Pick<
@@ -354,7 +353,19 @@ export const createBuilderStore = (
             readonly: true,
           };
         }),
-      startSaving: () => set({ saving: true }),
+      setIsPublishing: (isPublishing: boolean) =>
+        set((state) => {
+          if (isPublishing) {
+            state.removeStepSelection();
+            state.setReadOnly(true);
+          } else {
+            state.setReadOnly(false);
+          }
+          return {
+            isPublishing,
+          };
+        }),
+      isPublishing: false,
       setLoopIndex: (stepName: string, index: number) => {
         set((state) => {
           return {
@@ -628,7 +639,6 @@ export const useHandleKeyPressOnCanvas = () => {
                 const lastSelectedNode =
                   selectedNodes.length === 1 ? selectedNodes[0] : null;
                 pasteNodes(
-                  actions,
                   flowVersion,
                   {
                     parentStepName: lastSelectedNode ?? lastStep,
@@ -689,21 +699,6 @@ export const useSwitchToDraft = () => {
     switchToDraft,
     isSwitchingToDraftPending,
   };
-};
-
-export const usePasteActionsInClipboard = () => {
-  const [actionsToPaste, setActionsToPaste] = useState<Action[]>([]);
-  const fetchClipboardOperations = async () => {
-    if (document.hasFocus()) {
-      const fetchedActionsFromClipboard = await getActionsInClipboard();
-      if (fetchedActionsFromClipboard.length > 0) {
-        setActionsToPaste(fetchedActionsFromClipboard);
-      } else {
-        setActionsToPaste([]);
-      }
-    }
-  };
-  return { actionsToPaste, fetchClipboardOperations };
 };
 
 export const useIsFocusInsideListMapperModeInput = ({
